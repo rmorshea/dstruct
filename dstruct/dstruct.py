@@ -20,25 +20,16 @@ class StructEncoder(json.JSONEncoder):
 
 class BaseField(object):
 
-    dtype = None
     this_name = None
     this_class = None
-    data_path = None
 
-    def class_init(self, cls, name):
+    def setup_self(self, cls, name):
         self.this_class = cls
         self.this_name = name
 
-    def install(self, cls):
-        """Install this field object on the given ``cls``"""
+    def setup_cls(self, cls):
+        """setup_cls this field object on the given ``cls``"""
         if self.data_path is not None:
-            # assign to the flat field parser dict
-            if self.this_name in cls._field_parsers:
-                m = "Conflicting parser found for the data structure field '%s'"
-                raise FieldError(m % self.this_name)
-            else:
-                cls._field_parsers[self.this_name] = self
-
             # setup field in mapped paths
             d = cls._field_paths
             for key in self.data_path:
@@ -56,14 +47,8 @@ class BaseField(object):
                 d[None] = l
             l.append(self.this_name)
 
-
-    def __call__(self, inst, data):
-        """Coerce ``data`` to the dtype of this field"""
-        if self.dtype is not None:
-            d = self.dtype(data)
-        else:
-            d = data
-        return d
+    def setup_inst(self, inst):
+        pass
 
     def __get__(self, inst, cls=None):
         if inst is None:
@@ -76,89 +61,85 @@ class BaseField(object):
                 raise FieldError(m % (self.this_name, inst.__class__.__name__))
 
     def __set__(self, inst, value):
-        value = self.__call__(inst, value)
         inst._field_data[self.this_name] = value
+
+
+class instance_wrapper(object):
+
+    def __init__(self, func):
+        self._func = func
+
+    def set_instance(self, inst):
+        self._inst = inst
+
+    def __call__(self, *args, **kwargs):
+        return self._func(self._inst, *args, **kwargs)
 
 
 class DataField(BaseField):
 
-    def __init__(self, dtype=None, *path):
+    def __init__(self, *path, **kwargs):
         """Defines a field for data within a :class:`DataStruct`
 
         Parameters
         ----------
-        dtype: class, function
-            The type of data this field accepts, or a function for coersion. Values being
-            assigned to this field are coerced to ``dtype(<value>)`` before being set.
-            Errors encountered during coersion are allowed to raise.
         path: tuple
             The path to a value within a raw piece of data. If no path is provided
             the path is assumed to be ``(self.this_name)`` where ``self.this_name``
             is that of the attribute this field was defined under.
+        **kwargs:
+            By explicitely claiming ``path=None``, no assumptions are made about the
+            ``path``, causing all the raw data to be passed to the handler for parsing.
+            Asserting ``parser=<callable>`` creates a parser for this data field. The
+            parser should accept one argument, that being the value at the ``path``
+            in a raw piece of data.
         """
-        self.data_path = path or True
-        if dtype is not None:
-            self.dtype = dtype
+        self.data_path = path or kwargs.get('path', True)
+        p = kwargs.get('parser')
+        if callable(p) or p is None:
+            self.parser = p
+        else:
+            raise ValueError("parser must be callable")
 
-    def class_init(self, cls, name):
-        super(DataField, self).class_init(cls, name)
+    def __call__(self, func):
+        """Sets up a parser in an `instance_wrapper`"""
+        self.parser = instance_wrapper(func)
+        return self
+
+    def setup_self(self, cls, name):
+        super(DataField, self).setup_self(cls, name)
         if self.data_path is True:
             self.data_path = (self.this_name,)
-        self.install(cls)
-        
+        if self.data_path is None:
+            self.data_path = ()
 
+    def setup_inst(self, inst):
+        if self.this_name in inst._field_parsers:
+            m = "Conflicting parser found for the data structure field '%s'"
+            raise FieldError(m % self.this_name)
+        elif self.parser is not None:
+            if isinstance(self.parser, instance_wrapper):
+                self.parser.set_instance(inst)
+            inst._field_parsers[self.this_name] = self.parser
+        super(DataField, self).setup_inst(inst)
 
-def datafield(dtype=None, *path, **kwargs):
-    """A decorator defining a field and parser for data within a :class:`DataStruct`
+def datafield(*path, **kwargs):
+    """A decorator that defines a field for data within a :class:`DataStruct`
 
-    The handler passed to the decorator should be defined under the desired field
-    name for the data structure. Handlers must accept one argument, that being the
-    ``data`` which exists at the end of the given ``path``, and return the final
-    value which will be assigned to the data structure.
+    The decorated function becomes the parser for a :class:`DataField` which
+    will be assigned to a data structure under the function's defined name.
 
     Parameters
     ----------
-    dtype: class, function
-        The type of data this field accepts, or a function for coersion. Values being
-        assigned to this field are coerced via ``dtype(<value>)`` before being passed
-        to the parser. Errors encountered during coersion are allowed to raise.
     path: tuple
         The path to a value within a raw piece of data. If no path is provided
         the path is assumed to be ``(self.this_name)`` where ``self.this_name``
         is that of the attribute this field was defined under.
-    kwargs: dict
+    **kwargs:
         By explicitely claiming ``path=None``, no assumptions are made about the
         ``path``, causing all the raw data to be passed to the handler for parsing.
     """
-    return FieldParser(dtype, *path, **kwargs)
-
-
-class FieldParser(BaseField):
-
-    def __init__(self, dtype=None, *path, **kwargs):
-        self.data_path = path or kwargs.get('path', True)
-        if dtype is not None:
-            self.dtype = dtype
-
-    def _init_call(self, func):
-        self.func = func
-        return self
-
-    def __call__(self, *args, **kwargs):
-        if hasattr(self, 'func'):
-            inst, value = args
-            coerced = super(FieldParser, self).__call__(inst, value)
-            return self.func(inst, coerced)
-        else:
-            return self._init_call(*args, **kwargs)
-
-    def class_init(self, cls, name):
-        super(FieldParser, self).class_init(cls, name)
-        if self.data_path is True:
-            self.data_path = (self.this_name,)
-        elif self.data_path is None:
-            self.data_path = ()
-        self.install(cls)
+    return DataField(*path, **kwargs)
 
 # - - - - - - - - - - - - -
 # Base Data Structure Class
@@ -167,9 +148,6 @@ class FieldParser(BaseField):
 class MetaStruct(type):
 
     def __init__(cls, name, bases, classdict):
-        # the fields of the data structure
-        # and their corresponding parsers
-        cls._field_parsers = {}
         # paths within raw data that map to
         # the fields of the data structure
         cls._field_paths = {}
@@ -179,10 +157,11 @@ class MetaStruct(type):
         cdict = {}
         for c in cls.mro()[::-1]:
             cdict.update(c.__dict__)
-        # install the fields of subclasses
+        # setup_cls the fields of subclasses
         for k, v in cdict.items():
             if isinstance(v, BaseField):
-                v.class_init(cls, k)
+                v.setup_self(cls, k)
+                v.setup_cls(cls)
 
 
 # use `utils.with_metaclass` for py3 compatibility
@@ -190,36 +169,40 @@ class DataStruct(utils.with_metaclass(MetaStruct, object)):
 
     def __new__(cls, data=None):
         inst = super(DataStruct, cls).__new__(cls)
+        # the fields of the data structure
+        # and their corresponding parsers
+        inst._field_parsers = {}
+        # where field values are stored
         inst._field_data = {}
+
+        for k, v in cls.__dict__.items():
+            if isinstance(v, BaseField):
+                v.setup_inst(inst)
+
         return inst
 
     def __init__(self, data=None):
         """Map raw data onto the defined fields of this dict-like structure"""
         self.update(data)
 
-    def __getitem__(self, field):
-        return self._field_data[field]
+    def __setitem__(self, key, value):
+        f = self.getfield(key)
+        f.__set__(self, key, value)
 
-    def __setitem__(self, field, data):
-        if field in self._field_parsers:
-            data = self._field_parsers[field](self, data)
-        else:
-            raise FieldError("No parser found for the field '%s'" % field)
-        self._field_data[field] = data
+    def __getitem__(self, key):
+        f = self.getfield(key)
+        f.__get__(self, key)
 
-    def __delitem__(self, field):
-        p = self._field_parsers[field]
+    def delfield(self, field):
+        f = self.getfield(field)
 
         d = self._field_paths
-        if p.data_path is None:
-            path = (p.this_name,)
-        else:
-            path = p.data_path
+        path = d.data_path
 
         for k in path:
             d = d[k]
         l = d[None]
-        l.remove(p.this_name)
+        l.remove(f.this_name)
 
         # clean up
         if len(l)==0:
@@ -240,7 +223,9 @@ class DataStruct(utils.with_metaclass(MetaStruct, object)):
                 data = data._field_data
             mapped = self._map_data_to_fields(data)
             for field, value in mapped.items():
-                self.__setitem__(field, value)
+                if field in self._field_parsers:
+                    value = self._field_parsers[field](value)
+                setattr(self, field, value)
 
     def _map_data_to_fields(self, data):
         mapped = {}
@@ -251,9 +236,34 @@ class DataStruct(utils.with_metaclass(MetaStruct, object)):
                 mapped[field] = data_value
         return mapped
 
+    def getfield(self, name):
+        try:
+            f = getattr(self.__class__, name)
+        except:
+            raise FieldError("No field '%s'" % name)
+        if isinstance(f, BaseField):
+            return f
+        else:
+            raise FieldError("The attribute '%s' is not a field" % name)
+
+    def hasfield(self, name):
+        return isinstance(getattr(self.__class__, name, None), BaseField)
+
     def add_fields(self, **fields):
         """Dynamically add fields to this DataStruct instance."""
         self.__class__ = type(self.__class__.__name__, (self.__class__,), fields)
+
+    def add_parser(self, **parsers):
+        """Dynamically add parser to this DataStruct instance."""
+        for n, p in parsers.items():
+            if n in cls._field_parsers:
+                m = "Conflicting parser found for the data structure field '%s'"
+                raise FieldError(m % n)
+            elif callable(p):
+                cls._field_parsers[n] = p
+            else:
+                m = "The parser for the field '%s' is not callable"
+                raise FieldError(m % n)
 
     def json(self, filepath=None, *args, **kwargs):
         """Encodes the struct as a json string which is returned, or writen to ``filepath``
