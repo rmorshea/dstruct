@@ -18,7 +18,7 @@ class FileLoader(Loader):
         self.filepath = find_file(filename, path)
 
     def load(self):
-        return self._read_file_as_dict()
+        return self._read_file_as_dict(self.filepath)
 
     def _read_file_as_dict(self, filepath):
         pass
@@ -26,8 +26,8 @@ class FileLoader(Loader):
 
 class JSONLoader(FileLoader):
 
-    def _read_file_as_dict(self):
-        with open(self.filepath) as f:
+    def _read_file_as_dict(self, filepath):
+        with open(filepath) as f:
             d = json.load(f)
         return d
 
@@ -38,8 +38,8 @@ class CSVLoader(FileLoader):
         self.params = fmtparams
         self.dialect = dialect
 
-    def _read_file_as_dict(self):
-        with open(self.filepath) as f:
+    def _read_file_as_dict(self, filepath):
+        with open(filepath) as f:
             reader = csv.reader(f, self.dialect, **self.params)
             d = TableMapping(list(reader))
         return d

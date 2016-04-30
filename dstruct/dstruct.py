@@ -64,16 +64,48 @@ class BaseField(object):
         inst._field_data[self.this_name] = value
 
 
-class instance_wrapper(object):
+class dataparser(object):
 
     def __init__(self, func):
-        self._func = func
+        """A decorator for data parsers that are instance methods
 
-    def set_instance(self, inst):
-        self._inst = inst
+        Example
+        -------
+        ```
+        raw_data = {'mother': 'Alice',
+                    'father': 'Steve',
+                    'child': 'Daniel'}
+
+        class Family(DataStruct):
+            def __init__(self, lastname):
+                self.lastname = lastname
+
+            @dataparser
+            def fullname(self, firstname):
+                return firstname + ' ' + self.lastname
+
+            mother = DataField('mother', parser=fullname)
+            father = DataField('father', parser=fullname)
+            child = DataField('child', parser=fullname)
+
+        f = Family('Jones')
+        f.update(raw_data)
+        print(f)
+
+        # printed data structure:
+        # {'mother': 'Alice Jones', 'father': 'Steve Jones', 'child': 'Daniel Jones'}
+        ```
+        """
+        self.func = func
 
     def __call__(self, *args, **kwargs):
-        return self._func(self._inst, *args, **kwargs)
+        return self.func(*args, **kwargs)
+
+    def __get__(self, inst, cls=None):
+        if inst is None:
+            return self
+        else:
+            return types.MethodType(self.func, inst, None)
 
 
 class DataField(BaseField):
@@ -102,8 +134,8 @@ class DataField(BaseField):
             raise ValueError("parser must be callable")
 
     def __call__(self, func):
-        """Sets up a parser in an `instance_wrapper`"""
-        self.parser = instance_wrapper(func)
+        """Sets up a function as a `dataparser`"""
+        self.parser = dataparser(func)
         return self
 
     def setup_self(self, cls, name):
@@ -118,9 +150,11 @@ class DataField(BaseField):
             m = "Conflicting parser found for the data structure field '%s'"
             raise FieldError(m % self.this_name)
         elif self.parser is not None:
-            if isinstance(self.parser, instance_wrapper):
-                self.parser.set_instance(inst)
-            inst._field_parsers[self.this_name] = self.parser
+            if isinstance(self.parser, dataparser):
+                p = self.parser.__get__(inst)
+            else:
+                p = self.parser
+            inst._field_parsers[self.this_name] = p
         super(DataField, self).setup_inst(inst)
 
 def datafield(*path, **kwargs):
