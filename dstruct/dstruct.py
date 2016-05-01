@@ -21,31 +21,12 @@ class StructEncoder(json.JSONEncoder):
 class BaseField(object):
 
     this_name = None
-    this_class = None
 
-    def setup_self(self, cls, name):
-        self.this_class = cls
+    def setup_self(self, name):
         self.this_name = name
 
     def setup_cls(self, cls):
-        """setup_cls this field object on the given ``cls``"""
-        if self.data_path is not None:
-            # setup field in mapped paths
-            d = cls._field_paths
-            for key in self.data_path:
-                if key in d:
-                    sub = d[key]
-                else:
-                    sub = {}
-                    d[key] = sub
-                d = sub
-
-            if None in d:
-                l = d[None]
-            else:
-                l = []
-                d[None] = l
-            l.append(self.this_name)
+        pass
 
     def setup_inst(self, inst):
         pass
@@ -138,8 +119,28 @@ class DataField(BaseField):
         self.parser = dataparser(func)
         return self
 
-    def setup_self(self, cls, name):
-        super(DataField, self).setup_self(cls, name)
+    def setup_cls(self, cls):
+        """setup this field object on the given ``cls``"""
+        if self.data_path is not None:
+            # setup field in mapped paths
+            d = cls._field_paths
+            for key in self.data_path:
+                if key in d:
+                    sub = d[key]
+                else:
+                    sub = {}
+                    d[key] = sub
+                d = sub
+
+            if None in d:
+                l = d[None]
+            else:
+                l = []
+                d[None] = l
+            l.append(self.this_name)
+
+    def setup_self(self, name):
+        super(DataField, self).setup_self(name)
         if self.data_path is True:
             self.data_path = (self.this_name,)
         if self.data_path is None:
@@ -194,7 +195,7 @@ class MetaStruct(type):
         # setup_cls the fields of subclasses
         for k, v in cdict.items():
             if isinstance(v, BaseField):
-                v.setup_self(cls, k)
+                v.setup_self(k)
                 v.setup_cls(cls)
 
 
