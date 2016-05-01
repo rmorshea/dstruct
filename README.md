@@ -9,16 +9,19 @@ $ pip install git+https://github.com/rmorshea/dstruct.git#egg=dstruct
 ```
 
 ## Purpose
-`dstruct` is designed to map a larger data structure onto a smaller one, which is simple
-in principle, but can be complicated in practice - very robust datasets can have a degrees
-of nesting, or information that's relivant to a specific use case, can be spread across
-multiple fields.
+`dstruct` is designed to map a larger data structure onto a smaller one, which is simple in
+principle, but can be complicated in practice - sifting though robust datasets is difficult
+when the structure is highly nested, or relivant information is fractured. However, `dstruct`'s
+intuitive api makes pruning useless data, and parsing its relivant subsets easy.
 
 ## Basic Usage
-`dstruct` is meant to make trimming aand parsing data down to bite-size chunks easy and
-intuitive. In the simplest case, if we're only interested in information that resides,
-at the leaves of a nested data set, it's straightforward to create a `DataStruct` that
-will get it for you:
+In the simplest case, `dstruct` can retrieve the leaves of a nested data set.
+
+To solve this problem, create a `DataStruct` with `DataField` [descriptors](https://docs.python.org/howto/descriptor.html).
+The `DataField` class is used to specify where the data for that field resides, and the
+attribute name it will be assigned to on the `DataStruct`. The arguments in a `DataField`'s
+constructor should be the path to a relivant value in the raw data that gets passed to its
+`DataStruct`.
 
 ```python
 # we're only interested in the
@@ -45,17 +48,12 @@ class A(DataStruct):
     c = DataField('b', 'c')
     d = DataField('b', 'd')
 
+# pass raw data to A's constructor
 print(A(raw_data))
 ```
 
-The `DataField` class is used to specify where the data your interested ins resides, and under
-what field name it will exist at in the `DataStruct`. The arguments in a `DataField`'s
-constructor should be a path to the relivant value in the raw data.
-
-Once you've created your `DataStruct` class, simply pass it raw data to analyze, and you're done:
-```python
-# the printed data structure:
-{"a": 1, "c": 2, "d": 3}
+```
+{'a': 1, 'c': 2, 'd': 3}
 ```
 
 Once the instance has been created:
@@ -65,8 +63,8 @@ Once the instance has been created:
 
 ###But what about more complicated cases?
 After all, a more realistic application of `dstruct` might be towards making a bank account summary.
-And in that case, some parsers might be required for the information to be as clean and understandable
-as possible. Adding a parser to a field can be done in a three ways:
+And in that scenario, some parsers might be required to make the information presentable. Adding a
+parser to the field of a `DataStruct` can be done in a three ways:
 
 **1. Using the keyword `"parser"` in a DataField:**
 
@@ -79,9 +77,9 @@ class Account(DataStruct):
     # adds a parser that only shows the last four numbers
     number = DataField(parser=lambda s: 'X'*len(s[:-4])+s[-4:])
 
-print(Card(raw_data))
+print(Account(raw_data))
 ```
-```python
+```
 {'name': 'checking', 'number': 'XXXXX6789'}
 ```
 
@@ -99,9 +97,9 @@ class Account(DataStruct):
     def number(self, numstr):
         return 'X'*len(numstr[:-4])+numstr[-4:]
 
-print(Card(raw_data))
+print(Account(raw_data))
 ```
-```python
+```
 {'name': 'checking', 'number': 'XXXXX6789'}
 ```
 
@@ -127,11 +125,13 @@ class Accounts(DataStruct):
     checking = DataField(parser=hide)
     credit = DataField(parser=hide)
 
-print(Card(raw_data))
+print(Accounts(raw_data))
 ```
-```python
+```
 {'name': 'checking', 'number': 'XXXXX6789'}
 ```
+
+see [examples](https://github.com/rmorshea/dstruct#examples) for more info
 
 ## Loading Files
 
