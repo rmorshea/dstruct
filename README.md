@@ -1,11 +1,17 @@
 # DStruct
 Map raw data onto the defined fields of a dict-like structure
 
-## Instalation
+## Instalation and Testing
 `dstruct` can be installed from GitHub using `pip`:
 
 ```
 $ pip install git+https://github.com/rmorshea/dstruct.git#egg=dstruct
+```
+
+To run the tests, `cd` into the root directory of the package and run
+
+```
+$ nose2
 ```
 
 ## Purpose
@@ -113,17 +119,19 @@ class Accounts(DataStruct):
     def __init__(self, shown):
         self.number_shown = shown
 
-    # creates a loose data parser
-    # that is an instance method
-    @dataparser
+    checking = DataField()
+
+    # creates a loose data parser and use args
+    # to specify which fields it applies to
+    @dataparser('checking')
     def hide(self, numstr):
         n = self.number_shown
         return 'X'*len(numstr[:-n])+numstr[-n:]
     
-    # the loose data parser can now
-    # be used in multiple fields
-    checking = DataField(parser=hide)
+    # alternatively pass the loose data
+    # parser to a new field in kwargs
     credit = DataField(parser=hide)
+    
 
 print(Accounts(raw_data))
 ```
