@@ -1,18 +1,39 @@
 # DStruct
-Map raw data onto the defined fields of a dict-like structure
 
-## Instalation
-`dstruct` can be installed from GitHub using `pip`:
+[![Build Status](https://travis-ci.org/rmorshea/dstruct.svg?branch=master)](https://travis-ci.org/rmorshea/dstruct)
+
+Parse and map raw data onto the defined fields of a [bunch](https://pypi.python.org/pypi/bunch/)-like structure
+
++ enables complex data parsing
++ streamlines data trimming heuristics
++ intuitive api for nested data structures
+
+The implementation relies on the [descriptor](https://docs.python.org/howto/descriptor.html) pattern.
+
+## Instalation and Testing
+install `dstruct` using `pip`:
 
 ```
-$ pip install git+https://github.com/rmorshea/dstruct.git#egg=dstruct
+$ pip install dstruct
 ```
+
+To run the tests:
+
+```
+$ py.test dstruct
+```
+
+For a dev install:
+
++ clone this github repository
++ `cd` into the parent directory
++ and run `$ pip install -e .`
 
 ## Purpose
-`dstruct` is designed to map a larger data structure onto a smaller one, which is simple in
-principle, but can be complicated in practice - sifting though robust datasets is difficult
-when the structure is highly nested, or relivant information is fractured. However, `dstruct`'s
-intuitive api makes pruning useless data, and parsing its relivant subsets easy.
+`dstruct` is designed to map larger data structures onto smaller ones, which is simple in principle,
+but can be complicated in practice - sifting through robust datasets is difficult when the structure
+is highly nested, or relevant information is fractured. However, an intuitive api makes pruning useless
+data, and parsing its relevant subsets easy.
 
 ## Basic Usage
 In the simplest case, `dstruct` can retrieve the leaves of a nested data set.
@@ -87,7 +108,7 @@ print(Account(raw_data))
 
 ```python
 raw_data = {'name': 'checking',
-            'card-number': '0123456789'}
+            'number': '0123456789'}
 
 class Account(DataStruct):
     name = DataField()
@@ -110,30 +131,33 @@ raw_data = {'checking': '123456789',
             'credit': '987654321'}
 
 class Accounts(DataStruct):
-    def __init__(self, shown):
+    def __init__(self, data=None, shown=4):
         self.number_shown = shown
+        super(Accounts, self).__init__(data)
 
-    # creates a loose data parser
-    # that is an instance method
-    @dataparser
+    checking = DataField()
+
+    # creates a loose data parser and use args
+    # to specify which fields it applies to
+    @dataparser('checking')
     def hide(self, numstr):
-        n = self.number_shown
-        return 'X'*len(numstr[:-n])+numstr[-n:]
-    
-    # the loose data parser can now
-    # be used in multiple fields
-    checking = DataField(parser=hide)
+        n = -self.number_shown
+        return 'X'*len(numstr[:n])+numstr[n:]
+
+    # alternatively pass the loose data
+    # parser to a new field in kwargs
     credit = DataField(parser=hide)
+
 
 print(Accounts(raw_data))
 ```
 ```
-{'name': 'checking', 'number': 'XXXXX6789'}
+{"checking": "XXXXX6789", "credit": "XXXXX4321"}
 ```
 
 see [examples](https://github.com/rmorshea/dstruct#examples) for more info
 
-## Loading Files
+### Loading Files
 
 At the moment, `dstruct` knows how to import data from json and from csv files. To load one of these file
 types, all you have to do is create a data structure that inherits from the respective `DataStructFromJSON`
@@ -143,9 +167,9 @@ The generic class for loading files is `LoadedDataStruct`. Using this requires a
 passed to its constructor. To create a custom loader, inherit from `dstruct.loader.Loader` and override
 its `_read_file_as_dict` method.
 
-## Examples
+### Examples
 
-1. [`examples/basic.ipynb`]
-(https://github.com/rmorshea/dstruct/blob/master/examples/basic.ipynb)
-2. [`examples/advanced.ipynb`]
-(https://github.com/rmorshea/dstruct/blob/master/examples/advanced.ipynb)
+1. [`basic`]
+(https://github.com/rmorshea/dstruct/blob/master/examples/basic.ipynb): understand data fields and file loading
+2. [`advanced`]
+(https://github.com/rmorshea/dstruct/blob/master/examples/advanced.ipynb): learn to nest data structures with parsers

@@ -1,2 +1,1 @@
-from dstruct import *
-from loader import *
+from .dstruct import *

@@ -33,15 +33,16 @@ class JSONLoader(FileLoader):
 
 class CSVLoader(FileLoader):
 
-    def __init__(self, filename, path=None, dialect='excel', **fmtparams):
+    def __init__(self, filename, path=None, dialect='excel', table_form=None, **fmtparams):
         super(CSVLoader, self).__init__(filename, path)
+        self.table_form = table_form
         self.params = fmtparams
         self.dialect = dialect
 
     def _read_file_as_dict(self, filepath):
         with open(filepath) as f:
             reader = csv.reader(f, self.dialect, **self.params)
-            d = TableMapping(list(reader))
+            d = TableMapping(list(reader), self.table_form)
         return d
 
 # - - - - - - - - - - - - - - -
@@ -50,25 +51,51 @@ class CSVLoader(FileLoader):
 
 class TableMapping(dict):
 
-    def __init__(self, list_of_lists=None):
+    def __init__(self, graph=None, encoding=None):
+        """Convert a two dimensional categorical graph into a dict
+
+        Parameters
+        ----------
+        graph: iterable of iterables
+            The two dimensional object in a narrow or wide form encoding
+        encoding: "wide" or "narrow" (default: None)
+            Specify how the data graph is encoded. If not specified, the
+            encoding is infered based on how categories are organized."""
         super(TableMapping, self).__init__()
-        if list_of_lists is not None:
-            self._encode_as_dict(list_of_lists)
+        if graph is not None:
+            if encoding == 'wide':
+                self._wideform_encoding(graph)
+            elif encoding == 'narrow':
+                self._narrowform_encoding(graph)
+            else:
+                self.encode_as_dict(graph)
             
-    def _encode_as_dict(self, ll):
-        for l in zip(*ll):
+    def encode_as_dict(self, graph):
+        for l in list(zip(*graph))[:-1]:
+            # The first two columns are expected to
+            # have shared categories. Thus duplicates
+            # should be present.
             if len(l) != len(set(l)):
-                return self._narrowform_encoding(ll)
+                return self._narrowform_encoding(graph)
         else:
-            return self._wideform_encoding(ll)
+            return self._wideform_encoding(graph)
 
     def _wideform_encoding(self, ll):
         for i in range(1, len(ll)):
             d = {}
             l = ll[i]
-            self[l[0]] = d
+            try:
+                self[l[0]] = d
+            except IndexError:
+                raise ValueError("No values in row 0")
             for j in range(1, len(l)):
-                d[ll[0][j]] = l[j]
+                try:
+                    v = l[j]
+                except:
+                    m = "No values in row %r, column %r"
+                    raise ValueError(m % (i, j))
+                else:
+                    d[ll[0][j]] = v
 
     def _narrowform_encoding(self, ll):
         for l in ll[1:]:

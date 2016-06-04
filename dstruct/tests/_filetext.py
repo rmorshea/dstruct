@@ -1,3 +1,4 @@
+bank_data_json = """
 {
     "user": "John F. Doe",
     "billing-address": "123 Any Street Apt. 45 / Smallville, KS 1235",
@@ -36,7 +37,7 @@
         },
         "withdrawn": {
             "0": {
-                "amount": 1057.21,
+                "amount": 23.03,
                 "utc-unix": 1457476491,
                 "time-zone": "UTC-8",
                 "source": {
@@ -47,16 +48,32 @@
                 }
             },
             "1": {
-                "amount": 2.37,
+                "amount": 5.37,
                 "utc-unix": 1457447400,
                 "time-zone": "UTC-8",
                 "card": "0123456789101112",
                 "source": {
                     "type": "purchase",
                     "ref": "S466013457060112",
-                    "name": "Average-Restaurant"
+                    "name": "That-Super-Market"
                 }
             }
         }
     }
 }
+"""
+
+narrow_csv = """Person,Variable,Value
+Bob,Age,32
+Bob,Weight,178
+Alice,Age,24
+Alice,Weight,150
+Steve,Age,64
+Steve,Weight,195
+"""
+
+wide_csv = """Person,Age,Weight
+Bob,32,178
+Alice,24,150
+Steve,64,195
+"""
