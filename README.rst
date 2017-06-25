@@ -41,7 +41,8 @@ but can be complicated in practice - sifting through robust datasets is difficul
 is highly nested, or relevant information is fractured. However, an intuitive api makes pruning useless
 data, and parsing its relevant subsets easy.
 
-## Basic Usage
+Basic Usage
+-----------
 In the simplest case, ``dstruct`` can retrieve the leaves of a nested data set.
 
 To solve this problem, create a ``DataStruct`` with ``DataField`` descriptors.
