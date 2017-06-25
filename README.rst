@@ -1,9 +1,9 @@
+.. image:: https://travis-ci.org/rmorshea/dstruct.svg?branch=master
+    :target: https://travis-ci.org/rmorshea/dstruct
+
 =======
 DStruct
 =======
-
-.. image:: https://travis-ci.org/rmorshea/dstruct.svg?branch=master
-    :target: https://travis-ci.org/rmorshea/dstruct
 
 Parse and map raw data onto the defined fields of a `bunch <https://pypi.python.org/pypi/bunch/>`_-like structure
 
